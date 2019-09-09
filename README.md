@@ -32,28 +32,31 @@ To do this you just create your desired GUI in Visual Studio or another WPF edit
 If you want several windows you can just create more.
 You then run the following code snippet, it will create objects from all named elements and store them in variables
 
-        $XMLs = get-variable -Name "inputXML*"
-        Foreach ($XML in $XMLs) 
-        {
-                $Number = $XML.Name.Substring($XML.Name.Length -1 )
-                New-Variable -Name "Form$Number" -Value "Form$Number"
+        $XML = $XML -replace 'mc:Ignorable="d"','' -replace "x:N",'N'  -replace '^<Win.*', '<Window'
 
-                $XML = $XML.value -replace 'mc:Ignorable="d"','' -replace "x:N",'N'  -replace '^<Win.*', '<Window'
 
-                [void][System.Reflection.Assembly]::LoadWithPartialName('presentationframework')
-                [xml]$XAML = $XML
+        [void][System.Reflection.Assembly]::LoadWithPartialName('presentationframework')
+        [xml]$XAML = $XML
 
-                $reader=(New-Object System.Xml.XmlNodeReader $xaml)
-                try
-                { 
-                        set-Variable -Name "Form$Number" -value ([Windows.Markup.XamlReader]::Load( $reader ))
-                }
-
-                catch
-                {
-                Write-Warning "Unable to parse XML, with error: $($Error[0])`n Ensure that there are NO SelectionChanged properties (PowerShell cannot process them)"
+        $reader = (New-Object System.Xml.XmlNodeReader $xaml)
+        try { 
+                set-Variable -Name "Form" -value ([Windows.Markup.XamlReader]::Load( $reader ))
+        }
+        catch {
+                Write-Warning "Unable to parse XML, with error: $($Error[0])`n Ensure that there are NO SelectionChanged properties                     (PowerShell cannot process them)"
                 throw
                 }
+
+        $xaml.SelectNodes("//*[@Name]") | %{
+            #"trying item $($_.Name)";
+            try 
+            {
+                Set-Variable -Name "WPF$($_.Name)" -Value (Get-Variable -Name "Form$Number" -ValueOnly).FindName($_.Name) -ErrorAction Stop
+            }
+            catch
+            {
+                throw
+            }
         }
 
 You can then interact with the objects like this
